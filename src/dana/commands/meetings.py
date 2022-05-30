@@ -10,11 +10,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 import numpy as np
 
-from ..utils import CachedStore
-
-
-def divlist(l, d):
-    return [e / d for e in l]
+from .utils import CachedStore
 
 
 @dataclass
