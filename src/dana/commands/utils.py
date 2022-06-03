@@ -22,5 +22,7 @@ class CachedStore(dict):
         self.update(data)
 
     def commit(self):
+        print('update storage')
         self._client.update_storage({
             'storage': {self._key: json.dumps(self, default=str)}})
+        print('update storage done.')

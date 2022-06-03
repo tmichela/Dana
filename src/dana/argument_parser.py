@@ -45,19 +45,19 @@ parser_meeting_list = meeting_subparsers.add_parser('list', help='List all meeti
 parser_meeting_info = meeting_subparsers.add_parser('info', help='Get info about a meeting', formatter_class=RawDescriptionHelpFormatter)
 parser_meeting_edit = meeting_subparsers.add_parser('edit', help='Edit a meeting', formatter_class=RawDescriptionHelpFormatter)
 
-parser_meeting_add.add_argument('name', help='Meeting name')
-parser_meeting_add.add_argument('--description', '-d', type=str, help='Description')
+parser_meeting_add.add_argument('name', nargs='+', help='Meeting name')
+parser_meeting_add.add_argument('--description', '-d', type=str, nargs='+', help='Description')
 parser_meeting_add.add_argument('--start', '-s', type=str, required=True, help='Start time')
 parser_meeting_add.add_argument('--end', '-e', type=str, help='End time')
-parser_meeting_add.add_argument('--zoom', '-z', type=str, help='Zoom room url')
+parser_meeting_add.add_argument('--url', '-u', type=str, help='Room url')
 parser_meeting_add.add_argument('--participants', '-p', nargs='+', required=True, help='Participants')
 parser_meeting_add.add_argument(
     '--repeat', '-r', nargs=2, metavar=('NUM', 'INTERVAL'), action=ValidateRepeat,
     default=Repeat(7, 'days'), help='Time interval between meeting instances. Default: 7 days')
 
-parser_meeting_remove.add_argument('name', help='Name of the meeting to remove')
-parser_meeting_info.add_argument('name', help='Name of the meeting to get info about')
-parser_meeting_edit.add_argument('name', help='Name of the meeting to edit')
+parser_meeting_remove.add_argument('name', nargs='+', help='Name of the meeting to remove')
+parser_meeting_info.add_argument('name', nargs='+', help='Name of the meeting to get info about')
+parser_meeting_edit.add_argument('name', nargs='+', help='Name of the meeting to edit')
 parser_meeting_edit.add_argument('--arg', '-a', action='append', nargs=2, metavar=('KEY', 'VALUE'), required=True, help='key/value of the property to change')
 
 # reminders subcommand

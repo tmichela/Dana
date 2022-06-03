@@ -12,33 +12,32 @@ class Dana:
 
     def initialize(self, bot_handler):
         self.meetings = MeetingBot(bot_handler)
-    #     self.init_storage(bot_handler)
-
-    # def init_storage(self, bot_handler):
-    #     for store in ['meeting', 'reminder']:
-    #         if not bot_handler.storage.contains(store):
-    #             bot_handler.storage.put(store, [])
 
     def handle_message(self, message, bot_handler):
         print(message)
         args, output = parse_arguments(message['content'].split())
         if output:
             bot_handler.send_reply(message, f'```text\n{output}\n```')
+            return
 
         if args is None:
             print(output)
             return
 
-        if args.command == 'meeting':
+        if args.command == 'meeting' and args.meeting_command is not None:
             arguments = dict(args.__dict__)
             arguments.pop('meeting_command')
             arguments.pop('command')
-            getattr(self.meetings, args.meeting_command)(**arguments)
 
-        # if args:
-        #     print(args)
-        #     print(args.command)
-        #     print(args.repeat)
+            print(arguments)
+            print(args.meeting_command, type(args.meeting_command))
+            # res = getattr(self.meetings, args.meeting_command)(**arguments)
+            res = self.meetings.execute(args.meeting_command, **arguments)
+            print(res)
+            bot_handler.send_reply(message, res)
+        else:
+            print(args)
+
 
     def usage(self, bot='@-mention-bot'):
         return f"""Hi! I'm {bot}!"""
