@@ -29,6 +29,8 @@ class Meeting:
     def __post_init__(self):
         if isinstance(self.start, str):
             self.start = datetime.fromisoformat(self.start)
+        if isinstance(self.end, str):
+            self.end = datetime.fromisoformat(self.end)
 
         if self.weight is None:
             self.weight = [1. / len(self.participants)] * len(self.participants)
