@@ -1,15 +1,15 @@
-from argparse import ZERO_OR_MORE
-from dataclasses import dataclass, asdict, field
-from datetime import datetime
 import json
-from timeit import repeat
-from typing import Optional, List, Union, Tuple, Dict
-from functools import wraps
 import re
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from functools import wraps
+from timeit import repeat
+from typing import Dict, List, Optional, Tuple, Union
 
+import numpy as np
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-import numpy as np
+from loguru import logger as log
 
 from .utils import CachedStore
 
@@ -53,10 +53,11 @@ class Meeting:
         end = self.end.isoformat() if self.end else None
         if self.repeat:
             interval, unit = self.repeat
-            print(self.start, self.end, unit, interval)
-            return IntervalTrigger(start_date=self.start.isoformat(), end_date=end, **{unit: interval})
+            trigger = IntervalTrigger(start_date=self.start.isoformat(), end_date=end, **{unit: interval})
         else:
-            return IntervalTrigger(start_date=self.start.isoformat(), end_date=end)
+            trigger = IntervalTrigger(start_date=self.start.isoformat(), end_date=end)
+        log.info(f'trigger: {trigger}')
+        return trigger
 
     def takes_minutes(self):
         """Pick a participant taking minutes"""
@@ -64,8 +65,6 @@ class Meeting:
             return [np.random.choice(list(self.participants.values()))] * 3
 
         p = np.asarray(list(self.participants.keys()))
-        print(p, '<<< pppp')
-        print('weight >>>>>>>>>', self.weight)
         w = np.asarray(self.weight)
         # pick 3 users
         users = np.random.choice(p, 3, replace=False, p=w)
@@ -74,9 +73,8 @@ class Meeting:
         w[np.where(p==users[1])[0][0]] /= 2
         w /= w.sum()
 
-        # self.participants[:] = p.tolist()
-        self.weight[:] = w.tolist()
-        print('weight <<<<<<<<<<', self.weight)
+        log.info(f'{self.name} takes minutes: {users}\nold weights: {self.weight}\nnew weights: {w}')
+        self.weight[:] = w
 
         return users
 
@@ -84,7 +82,6 @@ class Meeting:
         """Return a reminder message"""
         users = self.takes_minutes()
 
-        # zl = f'*[url]({self.url})*\n' if self.url else ""
         msg = (
             f'**[{self.name}]({self.url or ""})** *starting now*\n\n'
             f'**{users[0]}** was randomly selected to take minutes (then **{users[1]}** or '
@@ -126,6 +123,7 @@ class MeetingBot(CachedStore):
         self.scheduler = BackgroundScheduler()
         self.scheduler.start()
         super().__init__(bot._client, 'meeting')
+        log.info('Meeting bot initialized')
 
     def init_data(self, data):
         for key, value in data.items():
@@ -133,12 +131,14 @@ class MeetingBot(CachedStore):
             self._add_job(meeting)
 
     def commit(self):
+        log.debug('Update storage for meeting with {len(self)} meetings')
         data = json.dumps({k: asdict(v) for k, v in self.items()}, default=str)
-        print(self._key, data)
         self._client.update_storage({'storage': {self._key: data}})
 
     @return_exc
     def execute(self, command, **kwargs):
+        log.debug(f'Executing command {command} with args {kwargs}')
+
         if command == 'add':
             name = ' '.join(kwargs['name'])
             start = re.match(r'<time:(.*)>', kwargs['start'])[1]
@@ -181,6 +181,7 @@ class MeetingBot(CachedStore):
 
     def add(self, **kwargs):
         meeting = Meeting(**kwargs)
+        log.info(f'Adding meeting:\n{meeting}')
         if meeting.name in self:
             return f':warning: Meeting {meeting.name} already exists!'
         self._add_job(meeting)
@@ -190,28 +191,28 @@ class MeetingBot(CachedStore):
 
     @ensure_name
     def remove(self, name: str):
-        print('remove scheduled job')
+        log.info(f'Removing meeting {name}')
         self.scheduler.remove_job(name)
-        print('remove from dict')
         del self[name]
-        print('update db')
         self.commit()
 
     @ensure_name
     def edit(self, name: str, **kwargs):
+        log.info(f'Editing meeting {name} with {kwargs}')
         meeting = self[name]
         for key, value in kwargs.items():
             if key == 'participants':
-                meeting.weight = np.ones(len(value), dtype=float)
+                meeting.weight = [1. / len(value)] * len(value)
                 # TODO retain weights for existing participants
             setattr(meeting, key, value)
         self.commit()
 
-    def _send_reminder(self, meeting):
-        self._client.send_message(meeting.reminder())
+    def _send_reminder(self, meeting: Meeting):
+        r = self._client.send_message(meeting.reminder())
+        log.info(f'Reminder sent for {meeting.name}: {r}')
         self.commit()  # save updated weights
 
-    def _add_job(self, meeting):
-        func = lambda: self._client.send_message(meeting.reminder())
+    def _add_job(self, meeting: Meeting):
+        log.info(f'Adding job for {meeting.name} with trigger:\n{repr(m.trigger())}')
         self.scheduler.add_job(
             self._send_reminder, meeting.trigger(), id=meeting.name, args=(meeting,))
