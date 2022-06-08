@@ -46,7 +46,7 @@ class Meeting:
         if self.repeat:
             md.append(f'repeats every {self.repeat[0]} {self.repeat[1]}')
         md.append(f'\nparticipants:')
-        for p in self.participants:
+        for p in sorted(self.participants):
             md.append(f'* {p}')
         return '\n'.join(md)
 
@@ -85,7 +85,7 @@ class Meeting:
         users = self.takes_minutes()
 
         msg = (
-            f'**[{self.name}]({self.url or ""})** *starting now*\n\n'
+            f'**[{self.name}]({self.url or ""})** *starts now*\n\n'
             f'**{users[0]}** was randomly selected to take minutes (then **{users[1]}** or '
             f'**{users[2]}** if unavailable)\n'
         )
@@ -133,7 +133,7 @@ class MeetingBot(CachedStore):
             self._add_job(meeting)
 
     def commit(self):
-        log.debug('Update storage for meeting with {len(self)} meetings')
+        log.debug(f'Update storage for meeting with {len(self)} meetings')
         data = json.dumps({k: asdict(v) for k, v in self.items()}, default=str)
         self._client.update_storage({'storage': {self._key: data}})
 
