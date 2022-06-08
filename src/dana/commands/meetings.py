@@ -215,6 +215,6 @@ class MeetingBot(CachedStore):
         self.commit()  # save updated weights
 
     def _add_job(self, meeting: Meeting):
-        log.info(f'Adding job for {meeting.name} with trigger:\n{repr(m.trigger())}')
+        log.info(f'Adding job for {meeting.name} with trigger:\n{repr(meeting.trigger())}')
         self.scheduler.add_job(
             self._send_reminder, meeting.trigger(), id=meeting.name, args=(meeting,))
