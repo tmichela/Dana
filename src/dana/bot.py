@@ -1,4 +1,3 @@
-from multiprocessing.sharedctypes import Value
 from io import StringIO
 from contextlib import redirect_stdout, redirect_stderr
 

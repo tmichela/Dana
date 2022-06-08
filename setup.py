@@ -29,6 +29,7 @@ setup(
     python_requires='>=3.7',
     install_requires=[
         'apscheduler',
+        'loguru',
         'numpy',
     ],
     package_dir={"": "src"},
