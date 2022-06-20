@@ -44,6 +44,8 @@ parser_meeting_remove = meeting_subparsers.add_parser('remove', help='Remove a m
 parser_meeting_list = meeting_subparsers.add_parser('list', help='List all meetings', formatter_class=RawDescriptionHelpFormatter)
 parser_meeting_info = meeting_subparsers.add_parser('info', help='Get info about a meeting', formatter_class=RawDescriptionHelpFormatter)
 parser_meeting_edit = meeting_subparsers.add_parser('edit', help='Edit a meeting', formatter_class=RawDescriptionHelpFormatter)
+parser_meeting_add_participant = meeting_subparsers.add_parser('add_participant', help='Add a participant to a meeting', formatter_class=RawDescriptionHelpFormatter)
+parser_meeting_remove_participant = meeting_subparsers.add_parser('remove_participant', help='Remove a participant from a meeting', formatter_class=RawDescriptionHelpFormatter)
 
 parser_meeting_add.add_argument('name', nargs='+', help='Meeting name')
 parser_meeting_add.add_argument('--description', '-d', type=str, nargs='+', help='Description')
@@ -59,6 +61,11 @@ parser_meeting_remove.add_argument('name', nargs='+', help='Name of the meeting 
 parser_meeting_info.add_argument('name', nargs='+', help='Name of the meeting to get info about')
 parser_meeting_edit.add_argument('name', nargs='+', help='Name of the meeting to edit')
 parser_meeting_edit.add_argument('--arg', '-a', action='append', nargs=2, metavar=('KEY', 'VALUE'), required=True, help='key/value of the property to change')
+
+parser_meeting_add_participant.add_argument('name', nargs='+', help='Name of the meeting')
+parser_meeting_add_participant.add_argument('--participant', '-p', nargs='+', help='Participant to add')
+parser_meeting_remove_participant.add_argument('name', nargs='+', help='Name of the meeting')
+parser_meeting_remove_participant.add_argument('--participant', '-p', nargs='+', help='Participant to remove')
 
 # reminders subcommand
 # TODO

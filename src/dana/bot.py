@@ -37,7 +37,6 @@ class Dana:
         else:
             print(args)
 
-
     def usage(self, bot='@-mention-bot'):
         return f"""Hi! I'm {bot}!"""
 
