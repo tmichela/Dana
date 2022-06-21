@@ -63,9 +63,9 @@ parser_meeting_edit.add_argument('name', nargs='+', help='Name of the meeting to
 parser_meeting_edit.add_argument('--arg', '-a', action='append', nargs=2, metavar=('KEY', 'VALUE'), required=True, help='key/value of the property to change')
 
 parser_meeting_add_participant.add_argument('name', nargs='+', help='Name of the meeting')
-parser_meeting_add_participant.add_argument('--participant', '-p', nargs='+', help='Participant to add')
+parser_meeting_add_participant.add_argument('--participants', '-p', nargs='+', help='Participant to add')
 parser_meeting_remove_participant.add_argument('name', nargs='+', help='Name of the meeting')
-parser_meeting_remove_participant.add_argument('--participant', '-p', nargs='+', help='Participant to remove')
+parser_meeting_remove_participant.add_argument('--participants', '-p', nargs='+', help='Participant to remove')
 
 # reminders subcommand
 # TODO

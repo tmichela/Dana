@@ -139,23 +139,24 @@ class MeetingBot(CachedStore):
         self._client.update_storage({'storage': {self._key: data}})
 
     def _zulip_users(self, users=None):
-        users = self._client.get_users()['members']
+        _users = self._client.get_users()['members']
         if users is not None:
             if isinstance(users, str):
                 users = [users]
-            return {u['full_name']: u['user_id'] for u in users if u['full_name'] in users}
-        return {u['full_name']: u['user_id'] for u in users}
+            return {u['full_name']: u['user_id'] for u in _users if u['full_name'] in users}
+        return {u['full_name']: u['user_id'] for u in _users}
 
     @return_exc
     def execute(self, command, **kwargs):
         log.debug(f'Executing command {command} with args {kwargs}')
+        re_participants = re.compile(r'\@\*\*([\w\s\']+)\*\*')
 
         if command == 'add':
             name = ' '.join(kwargs['name'])
             start = re.match(r'<time:(.*)>', kwargs['start'])[1]
             end = re.match(r'<time:(.*)>', kwargs['end'])[1] if kwargs['end'] else None
             desc = ' '.join(kwargs['description']) if kwargs['description'] else None
-            participants = re.findall(r'\@\*\*([\w\s]+)\*\*', ' '.join(kwargs['participants']))
+            participants = re_participants.findall(' '.join(kwargs['participants']))
         
             return self.add(
                 name=name,
@@ -174,12 +175,9 @@ class MeetingBot(CachedStore):
             return self.info(' '.join(kwargs['name']))
         elif command == 'edit':
             raise NotImplementedError
-        elif command == 'add_participant':
-            participants = re.findall(r'\@\*\*([\w\s]+)\*\*', ' '.join(kwargs['participants']))
-            return self.add_participant(' '.join(kwargs['name']), participants)
-        elif command == 'remove_participant':
-            participants = re.findall(r'\@\*\*([\w\s]+)\*\*', ' '.join(kwargs['participants']))
-            return self.remove_participant(' '.join(kwargs['name']), participants)
+        elif command in ('add_participant', 'remove_participant'):
+            participants = re_participants.findall(' '.join(kwargs['participants']))
+            return getattr(self, command)(' '.join(kwargs['name']), participants)
         else:
             return f'Unknown command "{command}"'
 
@@ -222,32 +220,31 @@ class MeetingBot(CachedStore):
         self.commit()
 
     @ensure_name
-    def add_participant(self, name: str, user: str):
-        log.info(f'Adding new participant {user} to meeting {name}')
+    def add_participant(self, name: str, users: str):
+        log.info(f'Adding new participant {users} to meeting {name}')
         meeting = self[name]
 
-        if user in meeting.participants:
+        if any(u in meeting.participants for u in users):
             return  # user already participates in meeting
 
-        meeting.participants.update(self._zulip_users(users=user))
-        max_weight = max(meeting.weight)
-        meeting.weight.append(max_weight)
+        meeting.participants.update(self._zulip_users(users=users))
+        meeting.weight += [max(meeting.weight)] * (len(meeting.participants) - len(meeting.weight))
         sum_weight = sum(meeting.weight)
         meeting.weight[:] = [w / sum_weight for w in meeting.weight]
         assert len(meeting.weight) == len(meeting.participants)
         self.commit()
 
     @ensure_name
-    def remove_participant(self, name: str, user: str):
-        log.info(f'Remove participant {user} from meeting {name}')
+    def remove_participant(self, name: str, users: str):
+        log.info(f'Remove participant {users} from meeting {name}')
         meeting = self[name]
 
-        if user not in meeting.participants:
-            return  # user does not participate in meeting
-
-        idx = list(meeting.participants).index(user)
-        meeting.participants.pop(user)
-        meeting.weight.pop(idx)
+        for user in users:
+            if user not in meeting.participants:
+                continue
+            idx = list(meeting.participants).index(user)
+            meeting.participants.pop(user)
+            meeting.weight.pop(idx)
         assert len(meeting.weight) == len(meeting.participants)
         self.commit()
 
