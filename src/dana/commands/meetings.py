@@ -64,7 +64,7 @@ class Meeting:
     def takes_minutes(self):
         """Pick a participant taking minutes"""
         if len(self.participants) < 3:
-            return [np.random.choice(list(self.participants.values()))] * 3
+            return [np.random.choice(list(self.participants.keys()))] * 3
 
         p = np.asarray(list(self.participants.keys()))
         w = np.asarray(self.weight)
