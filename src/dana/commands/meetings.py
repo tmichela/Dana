@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.interval import CalendarIntervalTrigger
 from loguru import logger as log
 
 from .utils import CachedStore
@@ -55,9 +55,9 @@ class Meeting:
         end = self.end.isoformat() if self.end else None
         if self.repeat:
             interval, unit = self.repeat
-            trigger = IntervalTrigger(start_date=self.start.isoformat(), end_date=end, **{unit: interval})
+            trigger = CalendarIntervalTrigger(start_date=self.start.isoformat(), end_date=end, **{unit: interval})
         else:
-            trigger = IntervalTrigger(start_date=self.start.isoformat(), end_date=end)
+            trigger = CalendarIntervalTrigger(start_date=self.start.isoformat(), end_date=end)
         log.info(f'trigger: {trigger}')
         return trigger
 
