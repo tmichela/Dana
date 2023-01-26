@@ -75,7 +75,7 @@ parser_meeting_remove_participant.add_argument('--participants', '-p', nargs='+'
 
 
 def parse_arguments(args):
-    if args[0].lower() == 'help':
+    if not args or args[0].lower() == 'help':
         return None, parser.format_help()
 
     try:
