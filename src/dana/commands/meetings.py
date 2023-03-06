@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from functools import wraps
 from itertools import chain
+from math import isclose
 from timeit import repeat
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -36,6 +37,11 @@ class Meeting:
 
         if self.weight is None:
             self.weight = [1. / len(self.participants)] * len(self.participants)
+
+        # fix invalid data
+        if not isclose(sum(self.weight), 1.):
+            sum_w = sum(self.weight)
+            self.weight[:] = [w / sum_w for w in self.weight]
 
         for p in list(self.participants_optional):
             if p in self.participants:
