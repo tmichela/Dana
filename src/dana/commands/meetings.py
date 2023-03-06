@@ -290,4 +290,4 @@ class MeetingBot(CachedStore):
         self.scheduler.add_job(
             self._send_appointment, trigger, id=meeting.name, args=(meeting,))
         self.scheduler.add_job(
-            self._send_reminder, trigger_reminder, id=meeting.name, args=(meeting,))
+            self._send_reminder, trigger_reminder, id=f'{meeting.name}.reminder', args=(meeting,))
