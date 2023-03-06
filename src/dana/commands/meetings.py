@@ -273,6 +273,9 @@ class MeetingBot(CachedStore):
             idx = list(meeting.participants).index(user)
             meeting.participants.pop(user)
             meeting.weight.pop(idx)
+
+        sum_weight = sum(meeting.weight)
+        meeting.weight[:] = [w / sum_weight for w in meeting.weight]
         assert len(meeting.weight) == len(meeting.participants)
         self.commit()
 
