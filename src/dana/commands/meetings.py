@@ -196,7 +196,8 @@ class MeetingBot(CachedStore):
             raise NotImplementedError
         elif command in ('add_participant', 'remove_participant'):
             participants = re_participants.findall(' '.join(kwargs['participants']))
-            return getattr(self, command)(' '.join(kwargs['name']), participants, optional=kwargs['optional'])
+            kw = {'optional': kwargs['optional']} if command == 'add_participant' else {}
+            return getattr(self, command)(' '.join(kwargs['name']), participants, **kw)
         else:
             return f'Unknown command "{command}"'
 
