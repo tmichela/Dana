@@ -174,7 +174,7 @@ class MeetingBot(CachedStore):
             end = re.match(r'<time:(.*)>', kwargs['end'])[1] if kwargs['end'] else None
             desc = ' '.join(kwargs['description']) if kwargs['description'] else None
             participants = re_participants.findall(' '.join(kwargs['participants']))
-            optional = re_participants.findall(' '.join(kwargs['optional']))
+            optional = re_participants.findall(' '.join(kwargs['optional'] or []))
         
             return self.add(
                 name=name,
