@@ -3,6 +3,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from functools import wraps
+from itertools import chain
 from timeit import repeat
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -25,6 +26,7 @@ class Meeting:
     repeat: Optional[Tuple[int, str]] = None
     paused: bool = False
     weight: Optional[List[float]] = None
+    participants_optional: Optional[Dict[str, int]] = field(default_factory=list)
 
     def __post_init__(self):
         if isinstance(self.start, str):
@@ -34,6 +36,10 @@ class Meeting:
 
         if self.weight is None:
             self.weight = [1. / len(self.participants)] * len(self.participants)
+
+        for p in list(self.participants_optional):
+            if p in self.participants:
+                del self.participants_optional[p]
 
     def __str__(self):
         md = [f'# {self.name}']
@@ -46,8 +52,8 @@ class Meeting:
         if self.repeat:
             md.append(f'repeats every {self.repeat[0]} {self.repeat[1]}')
         md.append(f'\nparticipants:')
-        for p in sorted(self.participants):
-            md.append(f'* {p}')
+        for p in sorted(self.participants | self.participants_optional):
+            md.append(f'* {p}{" (optional)" if p in self.participants_optional else ""}')
         return '\n'.join(md)
 
     def trigger(self):
@@ -91,7 +97,7 @@ class Meeting:
         )
         return {
             'type': 'private',
-            'to': list(self.participants.values()),
+            'to': [p for p in chain(self.participants.values(), self.participants_optional.values())],
             'content': msg,
         }
 
@@ -157,6 +163,7 @@ class MeetingBot(CachedStore):
             end = re.match(r'<time:(.*)>', kwargs['end'])[1] if kwargs['end'] else None
             desc = ' '.join(kwargs['description']) if kwargs['description'] else None
             participants = re_participants.findall(' '.join(kwargs['participants']))
+            optional = re.participants.findall(' '.join(kwargs['optional']))
         
             return self.add(
                 name=name,
@@ -166,6 +173,7 @@ class MeetingBot(CachedStore):
                 end=end,
                 url=kwargs['url'],
                 repeat=kwargs['repeat'],
+                participants_optional=self._zulip_users(users=optional),
             )
         elif command == 'remove':
             return self.remove(' '.join(kwargs['name']))
@@ -177,7 +185,7 @@ class MeetingBot(CachedStore):
             raise NotImplementedError
         elif command in ('add_participant', 'remove_participant'):
             participants = re_participants.findall(' '.join(kwargs['participants']))
-            return getattr(self, command)(' '.join(kwargs['name']), participants)
+            return getattr(self, command)(' '.join(kwargs['name']), participants, optional=kwargs['optional'])
         else:
             return f'Unknown command "{command}"'
 
@@ -220,18 +228,26 @@ class MeetingBot(CachedStore):
         self.commit()
 
     @ensure_name
-    def add_participant(self, name: str, users: str):
+    def add_participant(self, name: str, users: List[str], optional=False):
+        """
+        name, str: Meeting name
+        users, list[str]: users to add
+        optional, bool: are the additional users optional participants
+        """
         log.info(f'Adding new participant {users} to meeting {name}')
         meeting = self[name]
 
-        if any(u in meeting.participants for u in users):
+        if any(u in (meeting.participants | meeting.participants_optional) for u in users):
             return  # user already participates in meeting
 
-        meeting.participants.update(self._zulip_users(users=users))
-        meeting.weight += [max(meeting.weight)] * (len(meeting.participants) - len(meeting.weight))
-        sum_weight = sum(meeting.weight)
-        meeting.weight[:] = [w / sum_weight for w in meeting.weight]
-        assert len(meeting.weight) == len(meeting.participants)
+        if optional == False:
+            meeting.participants.update(self._zulip_users(users=users))
+            meeting.weight += [max(meeting.weight)] * (len(meeting.participants) - len(meeting.weight))
+            sum_weight = sum(meeting.weight)
+            meeting.weight[:] = [w / sum_weight for w in meeting.weight]
+            assert len(meeting.weight) == len(meeting.participants)
+        else:
+            meeting.participants_optional.update(self._zulip_users(users=users))
         self.commit()
 
     @ensure_name

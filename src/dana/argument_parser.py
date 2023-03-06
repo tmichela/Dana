@@ -53,6 +53,7 @@ parser_meeting_add.add_argument('--start', '-s', type=str, required=True, help='
 parser_meeting_add.add_argument('--end', '-e', type=str, help='End time')
 parser_meeting_add.add_argument('--url', '-u', type=str, help='Room url')
 parser_meeting_add.add_argument('--participants', '-p', nargs='+', required=True, help='Participants')
+parser_meeting_add.add_argument('--optional', '-o', nargs='+', required=True, help='Optional participants')
 parser_meeting_add.add_argument(
     '--repeat', '-r', nargs=2, metavar=('NUM', 'INTERVAL'), action=ValidateRepeat,
     default=Repeat(7, 'days'), help='Time interval between meeting instances. Default: 7 days')
@@ -64,6 +65,7 @@ parser_meeting_edit.add_argument('--arg', '-a', action='append', nargs=2, metava
 
 parser_meeting_add_participant.add_argument('name', nargs='+', help='Name of the meeting')
 parser_meeting_add_participant.add_argument('--participants', '-p', nargs='+', help='Participant to add')
+parser_meeting_add_participant.add_argument('--optional', '-o', action='store_true', help='Participants are optional')
 parser_meeting_remove_participant.add_argument('name', nargs='+', help='Name of the meeting')
 parser_meeting_remove_participant.add_argument('--participants', '-p', nargs='+', help='Participant to remove')
 
