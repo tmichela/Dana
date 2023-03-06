@@ -1,7 +1,7 @@
 import json
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from itertools import chain
 from timeit import repeat
@@ -59,13 +59,17 @@ class Meeting:
     def trigger(self):
         """Generate a trigger object for the scheduler"""
         end = self.end.isoformat() if self.end else None
+        start_reminder = self.start - timedelta(minutes=5)
         if self.repeat:
             interval, unit = self.repeat
             trigger = IntervalTrigger(start_date=self.start.isoformat(), end_date=end, **{unit: interval})
+            trigger_reminder = IntervalTrigger(start_date=start_reminder.isoformat(), end_date=end, **{unit: interval})
         else:
             trigger = IntervalTrigger(start_date=self.start.isoformat(), end_date=end)
+            trigger_reminder = IntervalTrigger(start_date=start_reminder.isoformat(), end_date=end)
         log.info(f'trigger: {trigger}')
-        return trigger
+
+        return trigger, trigger_reminder
 
     def takes_minutes(self):
         """Pick a participant taking minutes"""
@@ -86,10 +90,9 @@ class Meeting:
 
         return users
 
-    def reminder(self):
-        """Return a reminder message"""
+    def appointment(self):
+        """Return an appointment message"""
         users = self.takes_minutes()
-
         msg = (
             f'**[{self.name}]({self.url or ""})** *starts now*\n\n'
             f'**{users[0]}** was randomly selected to take minutes (then **{users[1]}** or '
@@ -99,6 +102,14 @@ class Meeting:
             'type': 'private',
             'to': [p for p in chain(self.participants.values(), self.participants_optional.values())],
             'content': msg,
+        }
+
+    def reminder(self):
+        """Return a reminder message"""
+        return {
+            'type': 'private',
+            'to': [p for p in chain(self.participants.values(), self.participants_optional.values())],
+            'content': f'**[{self.name}]({self.url or ""})** *starts in 5 minutes*\n\n'
         }
 
 
@@ -267,9 +278,16 @@ class MeetingBot(CachedStore):
     def _send_reminder(self, meeting: Meeting):
         r = self._client.send_message(meeting.reminder())
         log.info(f'Reminder sent for {meeting.name}: {r}')
+
+    def _send_appointment(self, meeting: Meeting):
+        r = self._client.send_message(meeting.appointment())
+        log.info(f'Appointment sent for {meeting.name}: {r}')
         self.commit()  # save updated weights
 
     def _add_job(self, meeting: Meeting):
         log.info(f'Adding job for {meeting.name} with trigger:\n{repr(meeting.trigger())}')
+        trigger, trigger_reminder = meeting.trigger()
         self.scheduler.add_job(
-            self._send_reminder, meeting.trigger(), id=meeting.name, args=(meeting,))
+            self._send_appointment, trigger, id=meeting.name, args=(meeting,))
+        self.scheduler.add_job(
+            self._send_reminder, trigger_reminder, id=meeting.name, args=(meeting,))
