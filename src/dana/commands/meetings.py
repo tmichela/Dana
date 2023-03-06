@@ -26,7 +26,7 @@ class Meeting:
     repeat: Optional[Tuple[int, str]] = None
     paused: bool = False
     weight: Optional[List[float]] = None
-    participants_optional: Optional[Dict[str, int]] = field(default_factory=list)
+    participants_optional: Optional[Dict[str, int]] = field(default_factory=dict)
 
     def __post_init__(self):
         if isinstance(self.start, str):
