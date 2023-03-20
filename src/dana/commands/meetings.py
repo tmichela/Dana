@@ -1,7 +1,7 @@
 import json
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from functools import wraps
 from itertools import chain
 from math import isclose
@@ -11,20 +11,33 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 from loguru import logger as log
 
 from .utils import CachedStore
 
 
+def time_delta(time: time, delta: timedelta):
+    return (datetime.combine(date(1, 1, 1), time) + delta).time()
+
+
 @dataclass
 class Meeting:
+    """
+
+    schedules:
+        list of tuples with schedule definitions formatted as (day(s), hour, minute),
+        e.g. ('Mon,Tue', 10, 0). If empty, the meeting will be triggered once at `start`
+        time.
+    """
     name: str
     description: str
     participants: Dict[str, int]
     start: Union[str, datetime]
     url: Optional[str] = None
     end: Optional[str] = None
-    repeat: Optional[Tuple[int, str]] = None
+    schedules: Optional[List[Tuple[str, int, int]]] = field(default_factory=dict)
     paused: bool = False
     weight: Optional[List[float]] = None
     participants_optional: Optional[Dict[str, int]] = field(default_factory=dict)
@@ -47,35 +60,48 @@ class Meeting:
             if p in self.participants:
                 del self.participants_optional[p]
 
+    @property
+    def status(self):
+        if self.end is not None and self.end < datetime.now().astimezone():
+            return 'expired'
+        if not self.schedules and self.start < datetime.now().astimezone():
+            return 'expired'
+        return "active" if not self.paused else "paused"
+
     def __str__(self):
         md = [f'# {self.name}']
         if self.description:
             md.append(f'*{self.description}*\n')
+        md.append(f'status: {self.status}')
         if self.url:
             md.append(f'url: {self.url}')
         md.append(f'start: {self.start.strftime("%Y-%m-%d %H:%M")}')
         md.append(f'end: {self.end.strftime("%Y-%m-%d %H:%M") if self.end is not None else "-"}')
-        if self.repeat:
-            md.append(f'repeats every {self.repeat[0]} {self.repeat[1]}')
+        if self.schedules:
+            sc = ', '.join([f'{week_days} at {hour}:{minute}' for week_days, hour, minute in self.schedules])
+            md.append(f'Schedules: {sc}')
         md.append(f'\nparticipants:')
         for p in sorted(self.participants | self.participants_optional):
             md.append(f'* {p}{" (optional)" if p in self.participants_optional else ""}')
         return '\n'.join(md)
 
     def trigger(self):
-        """Generate a trigger object for the scheduler"""
-        end = self.end.isoformat() if self.end else None
-        start_reminder = self.start - timedelta(minutes=5)
-        if self.repeat:
-            interval, unit = self.repeat
-            trigger = IntervalTrigger(start_date=self.start.isoformat(), end_date=end, **{unit: interval})
-            trigger_reminder = IntervalTrigger(start_date=start_reminder.isoformat(), end_date=end, **{unit: interval})
-        else:
-            trigger = IntervalTrigger(start_date=self.start.isoformat(), end_date=end)
-            trigger_reminder = IntervalTrigger(start_date=start_reminder.isoformat(), end_date=end)
-        log.info(f'trigger: {trigger}')
+        if self.schedules:
+            triggers = {}
+            for n, (days, hour, minute) in enumerate(self.schedules):
+                rem_time = time_delta(time(hour=hour, minute=minute), timedelta(minutes=-5))
+                reminder = CronTrigger(day_of_week=days, hour=rem_time.hour, minute=rem_time.minute, start_date=self.start, end_date=self.end)
+                trigger = CronTrigger(day_of_week=days, hour=hour, minute=minute, start_date=self.start, end_date=self.end)
 
-        return trigger, trigger_reminder
+                triggers[f'{self.name}.schedule-{n}'] = trigger
+                triggers[f'{self.name}.schedule-{n}.reminder'] = reminder
+            return triggers
+
+        else:
+            # single instance meeting
+            trigger = DateTrigger(self.start)
+            reminder = DateTrigger(self.start - timedelta(minutes=5))
+            return {self.name: trigger, f'{self.name}.reminder': reminder}
 
     def takes_minutes(self):
         """Pick a participant taking minutes"""
@@ -148,13 +174,16 @@ class MeetingBot(CachedStore):
     def __init__(self, bot):
         self.scheduler = BackgroundScheduler()
         self.scheduler.start()
-        super().__init__(bot._client, 'meeting')
+
+        self.cache_path = 'meeting-1'
+        super().__init__(bot._client, self.cache_path)
         log.info('Meeting bot initialized')
 
     def init_data(self, data):
         for key, value in data.items():
             self[key] = meeting = Meeting(**value)
-            self._add_job(meeting)
+            if not meeting.paused:
+                self._add_job(meeting)
 
     def commit(self):
         log.debug(f'Update storage for meeting with {len(self)} meetings')
@@ -174,14 +203,22 @@ class MeetingBot(CachedStore):
         log.debug(f'Executing command {command} with args {kwargs}')
         re_participants = re.compile(r'\@\*\*([\w\s\']+)\*\*')
 
+        name = ' '.join(kwargs.get('name', []))
+
         if command == 'add':
-            name = ' '.join(kwargs['name'])
             start = re.match(r'<time:(.*)>', kwargs['start'])[1]
             end = re.match(r'<time:(.*)>', kwargs['end'])[1] if kwargs['end'] else None
             desc = ' '.join(kwargs['description']) if kwargs['description'] else None
             participants = re_participants.findall(' '.join(kwargs['participants']))
             optional = re_participants.findall(' '.join(kwargs['optional'] or []))
-        
+
+            schedules = []
+            for days_of_week, time_of_day in kwargs.get('schedule', []):
+                print(days_of_week, time_of_day)
+                days_of_week = days_of_week.lower()
+                hour, _, minute = time_of_day.partition(':')
+                schedules.append((days_of_week, int(hour), int(minute)))
+
             return self.add(
                 name=name,
                 description=desc,
@@ -189,21 +226,25 @@ class MeetingBot(CachedStore):
                 start=start,
                 end=end,
                 url=kwargs['url'],
-                repeat=kwargs['repeat'],
+                schedules=schedules,
                 participants_optional=self._zulip_users(users=optional),
             )
         elif command == 'remove':
-            return self.remove(' '.join(kwargs['name']))
+            return self.remove(name)
         elif command == 'list':
             return self.list()
         elif command == 'info':
-            return self.info(' '.join(kwargs['name']))
+            return self.info(name)
         elif command == 'edit':
             raise NotImplementedError
         elif command in ('add_participant', 'remove_participant'):
             participants = re_participants.findall(' '.join(kwargs['participants']))
             kw = {'optional': kwargs['optional']} if command == 'add_participant' else {}
             return getattr(self, command)(' '.join(kwargs['name']), participants, **kw)
+        elif command == 'pause':
+            return self.pause(name)
+        elif command == 'resume':
+            return self.resume(name)
         else:
             return f'Unknown command "{command}"'
 
@@ -267,6 +308,7 @@ class MeetingBot(CachedStore):
         else:
             meeting.participants_optional.update(self._zulip_users(users=users))
         self.commit()
+        return str(meeting)
 
     @ensure_name
     def remove_participant(self, name: str, users: str):
@@ -284,6 +326,42 @@ class MeetingBot(CachedStore):
         meeting.weight[:] = [w / sum_weight for w in meeting.weight]
         assert len(meeting.weight) == len(meeting.participants)
         self.commit()
+        return str(meeting)
+
+    @ensure_name
+    def pause(self, name: str):
+        # TODO add argument to pause the meeting for <duration>
+        log.info(f'Pause reminders for meeting: {name}')
+        meeting = self[name]
+        print(meeting)
+        print('paused', meeting.paused)
+        if meeting.paused:
+            return f'Meeting "{name}" is already paused.'
+
+        meeting.paused = True
+        # remove all jobs for that meeting
+        print('removing jobs')
+        self._remove_job(meeting)
+        print('jobs removed')
+        self.commit()
+        return f'Meeting "{name}" is paused.'
+
+    @ensure_name
+    def resume(self, name: str):
+        log.info(f'Resume reminders for meeting: {name}')
+        meeting = self[name]
+        print(meeting)
+        print('paused', meeting.paused)
+        if not meeting.paused:
+            return f'Meeting "{name}" is not currently paused.'
+        
+        meeting.paused = False
+        # add jobs for that meeting
+        print('adding jobs')
+        self._add_job(meeting)
+        print('jobs added')
+        self.commit()
+        return f'Meeting "{name}" is resumed.'
 
     def _send_reminder(self, meeting: Meeting):
         r = self._client.send_message(meeting.reminder())
@@ -294,10 +372,16 @@ class MeetingBot(CachedStore):
         log.info(f'Appointment sent for {meeting.name}: {r}')
         self.commit()  # save updated weights
 
+    def _remove_job(self, meeting: Meeting):
+        job_ids = [job.id for job in self.scheduler.get_jobs()]
+        for job in job_ids:
+            if job.startswith(meeting.name):
+                self.scheduler.remove_job(job)
+
     def _add_job(self, meeting: Meeting):
-        log.info(f'Adding job for {meeting.name} with trigger:\n{repr(meeting.trigger())}')
-        trigger, trigger_reminder = meeting.trigger()
-        self.scheduler.add_job(
-            self._send_appointment, trigger, id=meeting.name, args=(meeting,))
-        self.scheduler.add_job(
-            self._send_reminder, trigger_reminder, id=f'{meeting.name}.reminder', args=(meeting,))
+        triggers = meeting.trigger()
+        log.info(f'Adding job for {meeting.name} with triggers:\n{repr(triggers)}')
+
+        for trigger_id, trigger in triggers.items():
+            func = self._send_reminder if trigger_id.endswith('.reminder') else self._send_appointment
+            self.scheduler.add_job(func, trigger, id=trigger_id, args=(meeting,))
