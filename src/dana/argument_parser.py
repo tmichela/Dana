@@ -42,7 +42,7 @@ parser_meeting_add.add_argument('--url', '-u', type=str, help='Room url')
 parser_meeting_add.add_argument('--participants', '-p', nargs='+', required=True, help='Participants')
 parser_meeting_add.add_argument('--optional', '-o', nargs='+', help='Optional participants')
 parser_meeting_add.add_argument(
-    '--schedule', '-sc', nargs='+', action='append',
+    '--schedule', '-sc', nargs=2, action='append',
     help=('Schedule for meeting repetition. Must contain week days and time of day, e.g. '
           '"wed 8:00", "mon,tue,fri 10:00" or "tue-sat 12:00". Add an additional "/n" after '
           'the week days to repeat the schedule every n week. e.g. "mon-fri/3 10:00" will '
