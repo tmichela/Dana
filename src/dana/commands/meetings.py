@@ -334,16 +334,12 @@ class MeetingBot(CachedStore):
         # TODO add argument to pause the meeting for <duration>
         log.info(f'Pause reminders for meeting: {name}')
         meeting = self[name]
-        print(meeting)
-        print('paused', meeting.paused)
         if meeting.paused:
             return f'Meeting "{name}" is already paused.'
 
         meeting.paused = True
         # remove all jobs for that meeting
-        print('removing jobs')
         self._remove_job(meeting)
-        print('jobs removed')
         self.commit()
         return f'Meeting "{name}" is paused.'
 
@@ -351,16 +347,12 @@ class MeetingBot(CachedStore):
     def resume(self, name: str):
         log.info(f'Resume reminders for meeting: {name}')
         meeting = self[name]
-        print(meeting)
-        print('paused', meeting.paused)
         if not meeting.paused:
             return f'Meeting "{name}" is not currently paused.'
         
         meeting.paused = False
         # add jobs for that meeting
-        print('adding jobs')
         self._add_job(meeting)
-        print('jobs added')
         self.commit()
         return f'Meeting "{name}" is resumed.'
 
