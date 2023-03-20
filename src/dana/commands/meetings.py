@@ -173,12 +173,10 @@ def return_exc(func):
 
 
 class MeetingBot(CachedStore):
-    def __init__(self, bot):
+    def __init__(self, bot, cache_path):
         self.scheduler = BackgroundScheduler()
         self.scheduler.start()
-
-        self.cache_path = 'meeting-1'
-        super().__init__(bot._client, self.cache_path)
+        super().__init__(bot._client, cache_path)
         log.info('Meeting bot initialized')
 
     def init_data(self, data):
