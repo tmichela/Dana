@@ -43,7 +43,11 @@ parser_meeting_add.add_argument('--participants', '-p', nargs='+', required=True
 parser_meeting_add.add_argument('--optional', '-o', nargs='+', help='Optional participants')
 parser_meeting_add.add_argument(
     '--schedule', '-sc', nargs='+', action='append',
-    help='Schedule for meeting repetition. Must contain week days and time of day, e.g. "wed 8:00", "mon,tue,fri 10:00" or "tue-sat 12:00". days and time must be separated by a empty space'
+    help=('Schedule for meeting repetition. Must contain week days and time of day, e.g. '
+          '"wed 8:00", "mon,tue,fri 10:00" or "tue-sat 12:00". Add an additional "/n" after '
+          'the week days to repeat the schedule every n week. e.g. "mon-fri/3 10:00" will '
+          'schedule a meeting every day from Monday through Friday at 10:00 every 3 weeks. '
+          'Days and time must be separated by a empty space')
 )
 
 parser_meeting_remove.add_argument('name', nargs='+', help='Name of the meeting to remove')

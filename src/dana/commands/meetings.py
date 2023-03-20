@@ -36,7 +36,7 @@ class Meeting:
     start: Union[str, datetime]
     url: Optional[str] = None
     end: Optional[str] = None
-    schedules: Optional[List[Tuple[str, int, int]]] = field(default_factory=dict)
+    schedules: Optional[List[Tuple[int, str, int, int]]] = field(default_factory=dict)
     paused: bool = False
     weight: Optional[List[float]] = None
     participants_optional: Optional[Dict[str, int]] = field(default_factory=dict)
@@ -77,7 +77,10 @@ class Meeting:
         md.append(f'start: {self.start.strftime("%Y-%m-%d %H:%M")}')
         md.append(f'end: {self.end.strftime("%Y-%m-%d %H:%M") if self.end is not None else "-"}')
         if self.schedules:
-            sc = ', '.join([f'{week_days} at {hour}:{minute}' for week_days, hour, minute in self.schedules])
+            sc = ', '.join(
+                [f'every{" " + str(week) if week > 1 else ""} week on {week_days} at {hour}:{minute}'
+                 for week, week_days, hour, minute in self.schedules]
+            )
             md.append(f'Schedules: {sc}')
         md.append(f'\nparticipants:')
         for p in sorted(self.participants | self.participants_optional):
@@ -87,20 +90,20 @@ class Meeting:
     def trigger(self):
         if self.schedules:
             triggers = {}
-            for n, (days, hour, minute) in enumerate(self.schedules):
+            for n, (week_interval, days, hour, minute) in enumerate(self.schedules):
                 rem_time = time_delta(time(hour=hour, minute=minute), timedelta(minutes=-5))
                 reminder = CronTrigger(day_of_week=days, hour=rem_time.hour, minute=rem_time.minute, start_date=self.start, end_date=self.end)
                 trigger = CronTrigger(day_of_week=days, hour=hour, minute=minute, start_date=self.start, end_date=self.end)
 
-                triggers[f'{self.name}.schedule-{n}'] = trigger
-                triggers[f'{self.name}.schedule-{n}.reminder'] = reminder
+                triggers[f'{self.name}.schedule-{n}'] = (trigger, week_interval)
+                triggers[f'{self.name}.schedule-{n}.reminder'] = (reminder, week_interval)
             return triggers
 
         else:
             # single instance meeting
             trigger = DateTrigger(self.start)
             reminder = DateTrigger(self.start - timedelta(minutes=5))
-            return {self.name: trigger, f'{self.name}.reminder': reminder}
+            return {self.name: (trigger, 1), f'{self.name}.reminder': (reminder, 1)}
 
     def takes_minutes(self):
         """Pick a participant taking minutes"""
@@ -213,10 +216,9 @@ class MeetingBot(CachedStore):
 
             schedules = []
             for days_of_week, time_of_day in kwargs.get('schedule', []):
-                print(days_of_week, time_of_day)
-                days_of_week = days_of_week.lower()
+                days_of_week, _, week_interval = days_of_week.lower().partition('/')
                 hour, _, minute = time_of_day.partition(':')
-                schedules.append((days_of_week, int(hour), int(minute)))
+                schedules.append((int(week_interval or 1), days_of_week, int(hour), int(minute)))
 
             return self.add(
                 name=name,
@@ -362,11 +364,22 @@ class MeetingBot(CachedStore):
         self.commit()
         return f'Meeting "{name}" is resumed.'
 
-    def _send_reminder(self, meeting: Meeting):
+    def _run_trigger_this_week(self, meeting, week_interval):
+        # seconds since meeting start
+        dt = datetime.now().timestamp() - meeting.start.timestamp()
+        # number of weeks since start of meeting
+        n_weeks = dt // 604800  # 604800: number of seconds in a week
+        return (n_weeks % week_interval) == 0
+
+    def _send_reminder(self, meeting: Meeting, week_interval: int):
+        if not self._run_trigger_this_week(meeting, week_interval):
+            return
         r = self._client.send_message(meeting.reminder())
         log.info(f'Reminder sent for {meeting.name}: {r}')
 
-    def _send_appointment(self, meeting: Meeting):
+    def _send_appointment(self, meeting: Meeting, week_interval: int):
+        if not self._run_trigger_this_week(meeting, week_interval):
+            return
         r = self._client.send_message(meeting.appointment())
         log.info(f'Appointment sent for {meeting.name}: {r}')
         self.commit()  # save updated weights
@@ -381,6 +394,6 @@ class MeetingBot(CachedStore):
         triggers = meeting.trigger()
         log.info(f'Adding job for {meeting.name} with triggers:\n{repr(triggers)}')
 
-        for trigger_id, trigger in triggers.items():
+        for trigger_id, (trigger, week_interval) in triggers.items():
             func = self._send_reminder if trigger_id.endswith('.reminder') else self._send_appointment
-            self.scheduler.add_job(func, trigger, id=trigger_id, args=(meeting,))
+            self.scheduler.add_job(func, trigger, id=trigger_id, args=(meeting, week_interval))
