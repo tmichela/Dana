@@ -5,12 +5,17 @@ from argument_parser import parse_arguments
 from commands.meetings import MeetingBot
 
 
+# key in the zulip cache where meeting information is stored
+# TODO make it configurable from an env variable or a configuration file
+CACHE_PATH = 'meeting-1'
+
+
 class Dana:
     """Dana is the Zulip bot, used by the Data Analysis group at the EuXFEL
     """
 
     def initialize(self, bot_handler):
-        self.meetings = MeetingBot(bot_handler)
+        self.meetings = MeetingBot(bot_handler, CACHE_PATH)
 
     def handle_message(self, message, bot_handler):
         print(message)

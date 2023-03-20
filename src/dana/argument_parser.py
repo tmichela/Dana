@@ -1,5 +1,4 @@
-from argparse import ArgumentParser, Action, RawDescriptionHelpFormatter
-from collections import namedtuple
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from io import StringIO
 from contextlib import redirect_stdout
 
@@ -21,20 +20,6 @@ parser = DanaParser(
 subparsers = parser.add_subparsers(dest='command', help='Command')
 
 # meetings subcommand
-Repeat = namedtuple('Repeat', ['number', 'interval'])
-class ValidateRepeat(Action):
-    def __init__(self, option_strings, dest, default=None, nargs=None, help=None, metavar=None):
-        super().__init__(option_strings, dest, nargs=nargs, default=default, help=help, metavar=metavar)
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        number, interval = values
-        number = int(number)
-        interval = interval.lower()
-        granularity = ('seconds', 'minutes', 'hours', 'days', 'weeks', 'months')
-        if interval not in granularity:
-            raise ValueError(f'Invalid granularity. Allowed are: {granularity}')
-        setattr(namespace, self.dest, Repeat(number, interval))
-
 parser_meeting = subparsers.add_parser(
     'meeting', help='Manage meeting reminders', formatter_class=RawDescriptionHelpFormatter)
 
@@ -46,6 +31,8 @@ parser_meeting_info = meeting_subparsers.add_parser('info', help='Get info about
 parser_meeting_edit = meeting_subparsers.add_parser('edit', help='Edit a meeting', formatter_class=RawDescriptionHelpFormatter)
 parser_meeting_add_participant = meeting_subparsers.add_parser('add_participant', help='Add a participant to a meeting', formatter_class=RawDescriptionHelpFormatter)
 parser_meeting_remove_participant = meeting_subparsers.add_parser('remove_participant', help='Remove a participant from a meeting', formatter_class=RawDescriptionHelpFormatter)
+parser_meeting_pause = meeting_subparsers.add_parser('pause', help='Pause meeting', formatter_class=RawDescriptionHelpFormatter)
+parser_meeting_resume = meeting_subparsers.add_parser('resume', help='Resume a paused meeting', formatter_class=RawDescriptionHelpFormatter)
 
 parser_meeting_add.add_argument('name', nargs='+', help='Meeting name')
 parser_meeting_add.add_argument('--description', '-d', type=str, nargs='+', help='Description')
@@ -55,8 +42,13 @@ parser_meeting_add.add_argument('--url', '-u', type=str, help='Room url')
 parser_meeting_add.add_argument('--participants', '-p', nargs='+', required=True, help='Participants')
 parser_meeting_add.add_argument('--optional', '-o', nargs='+', help='Optional participants')
 parser_meeting_add.add_argument(
-    '--repeat', '-r', nargs=2, metavar=('NUM', 'INTERVAL'), action=ValidateRepeat,
-    default=Repeat(7, 'days'), help='Time interval between meeting instances. Default: 7 days')
+    '--schedule', '-sc', nargs=2, action='append',
+    help=('Schedule for meeting repetition. Must contain week days and time of day, e.g. '
+          '"wed 8:00", "mon,tue,fri 10:00" or "tue-sat 12:00". Add an additional "/n" after '
+          'the week days to repeat the schedule every n week. e.g. "mon-fri/3 10:00" will '
+          'schedule a meeting every day from Monday through Friday at 10:00 every 3 weeks. '
+          'Days and time must be separated by a empty space')
+)
 
 parser_meeting_remove.add_argument('name', nargs='+', help='Name of the meeting to remove')
 parser_meeting_info.add_argument('name', nargs='+', help='Name of the meeting to get info about')
@@ -68,6 +60,10 @@ parser_meeting_add_participant.add_argument('--participants', '-p', nargs='+', h
 parser_meeting_add_participant.add_argument('--optional', '-o', action='store_true', default=False, help='Participants are optional')
 parser_meeting_remove_participant.add_argument('name', nargs='+', help='Name of the meeting')
 parser_meeting_remove_participant.add_argument('--participants', '-p', nargs='+', help='Participant to remove')
+
+parser_meeting_pause.add_argument('name', nargs='+', help='Name of the meeting')
+parser_meeting_resume.add_argument('name', nargs='+', help='Name of the meeting')
+
 
 # reminders subcommand
 # TODO
