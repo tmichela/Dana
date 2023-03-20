@@ -1,8 +1,10 @@
 import json
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
+from itertools import chain
+from math import isclose
 from timeit import repeat
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -25,6 +27,7 @@ class Meeting:
     repeat: Optional[Tuple[int, str]] = None
     paused: bool = False
     weight: Optional[List[float]] = None
+    participants_optional: Optional[Dict[str, int]] = field(default_factory=dict)
 
     def __post_init__(self):
         if isinstance(self.start, str):
@@ -34,6 +37,15 @@ class Meeting:
 
         if self.weight is None:
             self.weight = [1. / len(self.participants)] * len(self.participants)
+
+        # fix invalid data
+        if not isclose(sum(self.weight), 1.):
+            sum_w = sum(self.weight)
+            self.weight[:] = [w / sum_w for w in self.weight]
+
+        for p in list(self.participants_optional):
+            if p in self.participants:
+                del self.participants_optional[p]
 
     def __str__(self):
         md = [f'# {self.name}']
@@ -46,20 +58,24 @@ class Meeting:
         if self.repeat:
             md.append(f'repeats every {self.repeat[0]} {self.repeat[1]}')
         md.append(f'\nparticipants:')
-        for p in sorted(self.participants):
-            md.append(f'* {p}')
+        for p in sorted(self.participants | self.participants_optional):
+            md.append(f'* {p}{" (optional)" if p in self.participants_optional else ""}')
         return '\n'.join(md)
 
     def trigger(self):
         """Generate a trigger object for the scheduler"""
         end = self.end.isoformat() if self.end else None
+        start_reminder = self.start - timedelta(minutes=5)
         if self.repeat:
             interval, unit = self.repeat
             trigger = IntervalTrigger(start_date=self.start.isoformat(), end_date=end, **{unit: interval})
+            trigger_reminder = IntervalTrigger(start_date=start_reminder.isoformat(), end_date=end, **{unit: interval})
         else:
             trigger = IntervalTrigger(start_date=self.start.isoformat(), end_date=end)
+            trigger_reminder = IntervalTrigger(start_date=start_reminder.isoformat(), end_date=end)
         log.info(f'trigger: {trigger}')
-        return trigger
+
+        return trigger, trigger_reminder
 
     def takes_minutes(self):
         """Pick a participant taking minutes"""
@@ -80,10 +96,9 @@ class Meeting:
 
         return users
 
-    def reminder(self):
-        """Return a reminder message"""
+    def appointment(self):
+        """Return an appointment message"""
         users = self.takes_minutes()
-
         msg = (
             f'**[{self.name}]({self.url or ""})** *starts now*\n\n'
             f'**{users[0]}** was randomly selected to take minutes (then **{users[1]}** or '
@@ -91,8 +106,16 @@ class Meeting:
         )
         return {
             'type': 'private',
-            'to': list(self.participants.values()),
+            'to': [p for p in chain(self.participants.values(), self.participants_optional.values())],
             'content': msg,
+        }
+
+    def reminder(self):
+        """Return a reminder message"""
+        return {
+            'type': 'private',
+            'to': [p for p in chain(self.participants.values(), self.participants_optional.values())],
+            'content': f'**[{self.name}]({self.url or ""})** *starts in 5 minutes*\n\n'
         }
 
 
@@ -157,6 +180,7 @@ class MeetingBot(CachedStore):
             end = re.match(r'<time:(.*)>', kwargs['end'])[1] if kwargs['end'] else None
             desc = ' '.join(kwargs['description']) if kwargs['description'] else None
             participants = re_participants.findall(' '.join(kwargs['participants']))
+            optional = re_participants.findall(' '.join(kwargs['optional'] or []))
         
             return self.add(
                 name=name,
@@ -166,6 +190,7 @@ class MeetingBot(CachedStore):
                 end=end,
                 url=kwargs['url'],
                 repeat=kwargs['repeat'],
+                participants_optional=self._zulip_users(users=optional),
             )
         elif command == 'remove':
             return self.remove(' '.join(kwargs['name']))
@@ -177,7 +202,8 @@ class MeetingBot(CachedStore):
             raise NotImplementedError
         elif command in ('add_participant', 'remove_participant'):
             participants = re_participants.findall(' '.join(kwargs['participants']))
-            return getattr(self, command)(' '.join(kwargs['name']), participants)
+            kw = {'optional': kwargs['optional']} if command == 'add_participant' else {}
+            return getattr(self, command)(' '.join(kwargs['name']), participants, **kw)
         else:
             return f'Unknown command "{command}"'
 
@@ -220,18 +246,26 @@ class MeetingBot(CachedStore):
         self.commit()
 
     @ensure_name
-    def add_participant(self, name: str, users: str):
+    def add_participant(self, name: str, users: List[str], optional=False):
+        """
+        name, str: Meeting name
+        users, list[str]: users to add
+        optional, bool: are the additional users optional participants
+        """
         log.info(f'Adding new participant {users} to meeting {name}')
         meeting = self[name]
 
-        if any(u in meeting.participants for u in users):
+        if any(u in (meeting.participants | meeting.participants_optional) for u in users):
             return  # user already participates in meeting
 
-        meeting.participants.update(self._zulip_users(users=users))
-        meeting.weight += [max(meeting.weight)] * (len(meeting.participants) - len(meeting.weight))
-        sum_weight = sum(meeting.weight)
-        meeting.weight[:] = [w / sum_weight for w in meeting.weight]
-        assert len(meeting.weight) == len(meeting.participants)
+        if optional == False:
+            meeting.participants.update(self._zulip_users(users=users))
+            meeting.weight += [max(meeting.weight)] * (len(meeting.participants) - len(meeting.weight))
+            sum_weight = sum(meeting.weight)
+            meeting.weight[:] = [w / sum_weight for w in meeting.weight]
+            assert len(meeting.weight) == len(meeting.participants)
+        else:
+            meeting.participants_optional.update(self._zulip_users(users=users))
         self.commit()
 
     @ensure_name
@@ -245,15 +279,25 @@ class MeetingBot(CachedStore):
             idx = list(meeting.participants).index(user)
             meeting.participants.pop(user)
             meeting.weight.pop(idx)
+
+        sum_weight = sum(meeting.weight)
+        meeting.weight[:] = [w / sum_weight for w in meeting.weight]
         assert len(meeting.weight) == len(meeting.participants)
         self.commit()
 
     def _send_reminder(self, meeting: Meeting):
         r = self._client.send_message(meeting.reminder())
         log.info(f'Reminder sent for {meeting.name}: {r}')
+
+    def _send_appointment(self, meeting: Meeting):
+        r = self._client.send_message(meeting.appointment())
+        log.info(f'Appointment sent for {meeting.name}: {r}')
         self.commit()  # save updated weights
 
     def _add_job(self, meeting: Meeting):
         log.info(f'Adding job for {meeting.name} with trigger:\n{repr(meeting.trigger())}')
+        trigger, trigger_reminder = meeting.trigger()
         self.scheduler.add_job(
-            self._send_reminder, meeting.trigger(), id=meeting.name, args=(meeting,))
+            self._send_appointment, trigger, id=meeting.name, args=(meeting,))
+        self.scheduler.add_job(
+            self._send_reminder, trigger_reminder, id=f'{meeting.name}.reminder', args=(meeting,))
