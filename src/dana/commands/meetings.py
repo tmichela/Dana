@@ -61,9 +61,9 @@ class Meeting:
 
     @property
     def status(self):
-        if self.end is not None and self.end < datetime.now().astimezone():
+        if self.end is not None and self.end < datetime.now(tz=self.end.tzinfo):
             return 'expired'
-        if not self.schedules and self.start < datetime.now().astimezone():
+        if not self.schedules and self.start < datetime.now(tz=self.start.tzinfo):
             return 'expired'
         return "active" if not self.paused else "paused"
 
