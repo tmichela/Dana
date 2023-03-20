@@ -10,7 +10,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from loguru import logger as log

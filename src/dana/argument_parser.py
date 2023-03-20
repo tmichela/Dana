@@ -1,5 +1,4 @@
-from argparse import ArgumentParser, Action, RawDescriptionHelpFormatter
-from collections import namedtuple
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from io import StringIO
 from contextlib import redirect_stdout
 
