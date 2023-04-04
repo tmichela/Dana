@@ -78,7 +78,7 @@ class Meeting:
         md.append(f'end: {self.end.strftime("%Y-%m-%d %H:%M") if self.end is not None else "-"}')
         if self.schedules:
             sc = ', '.join(
-                [f'every{" " + str(week) if week > 1 else ""} week on {week_days} at {hour}:{minute}'
+                [f'every{" " + str(week) if week > 1 else ""} week on {week_days} at {hour:02}:{minute:02}'
                  for week, week_days, hour, minute in self.schedules]
             )
             md.append(f'Schedules: {sc}')
