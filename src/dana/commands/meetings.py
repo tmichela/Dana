@@ -355,14 +355,16 @@ class MeetingBot(CachedStore):
         return f'Meeting "{name}" is resumed.'
 
     def _run_trigger_this_week(self, meeting, week_interval, delta=0):
+        # start day
+        start_day = datetime(meeting.start.year, meeting.start.month, meeting.start.day)
         # seconds since meeting start
-        dt = datetime.now().timestamp() + delta - meeting.start.timestamp()
+        dt = datetime.now().timestamp() + delta - start_day.timestamp()
         # number of weeks since start of meeting
         n_weeks = dt // 604800  # 604800: number of seconds in a week
         return (n_weeks % week_interval) == 0
 
     def _send_reminder(self, meeting: Meeting, week_interval: int):
-        if not self._run_trigger_this_week(meeting, week_interval, 300):
+        if not self._run_trigger_this_week(meeting, week_interval):
             return
         r = self._client.send_message(meeting.reminder())
         log.info(f'Reminder sent for {meeting.name}: {r}')
