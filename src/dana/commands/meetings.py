@@ -92,8 +92,8 @@ class Meeting:
             triggers = {}
             for n, (week_interval, days, hour, minute) in enumerate(self.schedules):
                 rem_time = time_delta(time(hour=hour, minute=minute), timedelta(minutes=-5))
-                reminder = CronTrigger(day_of_week=days, hour=rem_time.hour, minute=rem_time.minute, start_date=self.start, end_date=self.end)
-                trigger = CronTrigger(day_of_week=days, hour=hour, minute=minute, start_date=self.start, end_date=self.end)
+                reminder = CronTrigger(day_of_week=days, hour=rem_time.hour, minute=rem_time.minute, start_date=self.start, end_date=self.end, timezone='Europe/Berlin')
+                trigger = CronTrigger(day_of_week=days, hour=hour, minute=minute, start_date=self.start, end_date=self.end, timezone='Europe/Berlin')
 
                 triggers[f'{self.name}.schedule-{n}'] = (trigger, week_interval)
                 triggers[f'{self.name}.schedule-{n}.reminder'] = (reminder, week_interval)
