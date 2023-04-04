@@ -249,8 +249,8 @@ class MeetingBot(CachedStore):
 
     def list(self):
         msg = ['# Meetings:']
-        for idx, meeting in enumerate(self):
-            msg.append(f'{idx}. {meeting}')
+        for idx, (name, meeting) in enumerate(self.items()):
+            msg.append(f'{idx}. [{meeting.status}] {name}')
         return '\n'.join(msg)
 
     @ensure_name
