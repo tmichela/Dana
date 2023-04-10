@@ -2,12 +2,13 @@ import json
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, time, timedelta
-from functools import wraps
+from functools import lru_cache, wraps
 from itertools import chain
 from math import isclose
 from timeit import repeat
 from typing import Dict, List, Optional, Tuple, Union
 
+import holidays
 import numpy as np
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -15,6 +16,16 @@ from apscheduler.triggers.date import DateTrigger
 from loguru import logger as log
 
 from .utils import CachedStore
+
+
+COUNTRY = 'Germany'
+PROVINCE = 'HH'
+
+
+@lru_cache()
+def public_holidays(year: int):
+    h = holidays.CountryHolidays(COUNTRY, subdiv=PROVINCE, years=year)
+    return h
 
 
 def time_delta(time: time, delta: timedelta):
@@ -363,14 +374,24 @@ class MeetingBot(CachedStore):
         n_weeks = dt // 604800  # 604800: number of seconds in a week
         return (n_weeks % week_interval) == 0
 
-    def _send_reminder(self, meeting: Meeting, week_interval: int):
+    def _skip(self, meeting, week_interval):
         if not self._run_trigger_this_week(meeting, week_interval):
+            return True
+
+        today = date.today()
+        if today in public_holidays(today.year):
+            return True
+
+        return False
+
+    def _send_reminder(self, meeting: Meeting, week_interval: int):
+        if self._skip(meeting, week_interval):
             return
         r = self._client.send_message(meeting.reminder())
         log.info(f'Reminder sent for {meeting.name}: {r}')
 
     def _send_appointment(self, meeting: Meeting, week_interval: int):
-        if not self._run_trigger_this_week(meeting, week_interval):
+        if self._skip(meeting, week_interval):
             return
         r = self._client.send_message(meeting.appointment())
         log.info(f'Appointment sent for {meeting.name}: {r}')
