@@ -24,7 +24,7 @@ PROVINCE = 'HH'
 
 @lru_cache()
 def public_holidays(year: int):
-    h = holidays.CountryHolidays(COUNTRY, subdiv=PROVINCE, years=year)
+    h = holidays.CountryHoliday(COUNTRY, subdiv=PROVINCE, years=year)
     return h
 
 
