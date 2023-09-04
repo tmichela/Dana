@@ -224,7 +224,7 @@ class MeetingBot(CachedStore):
             optional = re_participants.findall(' '.join(kwargs['optional'] or []))
 
             schedules = []
-            for days_of_week, time_of_day in kwargs.get('schedule', []):
+            for days_of_week, time_of_day in kwargs.get('schedule', []) or []:
                 days_of_week, _, week_interval = days_of_week.lower().partition('/')
                 hour, _, minute = time_of_day.partition(':')
                 schedules.append((int(week_interval or 1), days_of_week, int(hour), int(minute)))
