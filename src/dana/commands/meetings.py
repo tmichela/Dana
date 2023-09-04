@@ -137,24 +137,24 @@ class Meeting:
 
     def appointment(self):
         """Return an appointment message"""
+        return {
+            'type': 'private',
+            'to': [p for p in chain(self.participants.values(), self.participants_optional.values())],
+            'content': f'**[{self.name}]({self.url or ""})** *starts now*\n\n',
+        }
+
+    def reminder(self):
+        """Return a reminder message"""
         users = self.takes_minutes()
         msg = (
-            f'**[{self.name}]({self.url or ""})** *starts now*\n\n'
+            f'**[{self.name}]({self.url or ""})** *starts in 5 minutes*\n\n'
             f'**{users[0]}** was randomly selected to take minutes (then **{users[1]}** or '
             f'**{users[2]}** if unavailable)\n'
         )
         return {
             'type': 'private',
             'to': [p for p in chain(self.participants.values(), self.participants_optional.values())],
-            'content': msg,
-        }
-
-    def reminder(self):
-        """Return a reminder message"""
-        return {
-            'type': 'private',
-            'to': [p for p in chain(self.participants.values(), self.participants_optional.values())],
-            'content': f'**[{self.name}]({self.url or ""})** *starts in 5 minutes*\n\n'
+            'content': msg
         }
 
 
@@ -224,7 +224,7 @@ class MeetingBot(CachedStore):
             optional = re_participants.findall(' '.join(kwargs['optional'] or []))
 
             schedules = []
-            for days_of_week, time_of_day in kwargs.get('schedule', []):
+            for days_of_week, time_of_day in kwargs.get('schedule', []) or []:
                 days_of_week, _, week_interval = days_of_week.lower().partition('/')
                 hour, _, minute = time_of_day.partition(':')
                 schedules.append((int(week_interval or 1), days_of_week, int(hour), int(minute)))
@@ -389,13 +389,13 @@ class MeetingBot(CachedStore):
             return
         r = self._client.send_message(meeting.reminder())
         log.info(f'Reminder sent for {meeting.name}: {r}')
+        self.commit()  # save updated weights
 
     def _send_appointment(self, meeting: Meeting, week_interval: int):
         if self._skip(meeting, week_interval):
             return
         r = self._client.send_message(meeting.appointment())
         log.info(f'Appointment sent for {meeting.name}: {r}')
-        self.commit()  # save updated weights
 
     def _remove_job(self, meeting: Meeting):
         job_ids = [job.id for job in self.scheduler.get_jobs()]
