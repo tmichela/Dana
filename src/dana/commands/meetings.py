@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import holidays
 import numpy as np
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
@@ -281,7 +282,11 @@ class MeetingBot(CachedStore):
     @ensure_name
     def remove(self, name: str):
         log.info(f'Removing meeting {name}')
-        self.scheduler.remove_job(name)
+        for trigger in self[name].trigger():
+            try:
+                self.scheduler.remove_job(trigger)
+            except JobLookupError:
+                pass
         del self[name]
         self.commit()
 
