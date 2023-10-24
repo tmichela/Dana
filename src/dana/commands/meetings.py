@@ -217,18 +217,20 @@ class MeetingBot(CachedStore):
 
         name = ' '.join(kwargs.get('name', []))
 
+        def parse_schedules():
+            schedules = []
+            for days_of_week, time_of_day in kwargs.get('schedule', []) or []:
+                days_of_week, _, week_interval = days_of_week.lower().partition('/')
+                hour, _, minute = time_of_day.partition(':')
+                schedules.append((int(week_interval or 1), days_of_week, int(hour), int(minute)))
+            return schedules
+
         if command == 'add':
             start = re.match(r'<time:(.*)>', kwargs['start'])[1]
             end = re.match(r'<time:(.*)>', kwargs['end'])[1] if kwargs['end'] else None
             desc = ' '.join(kwargs['description']) if kwargs['description'] else None
             participants = re_participants.findall(' '.join(kwargs['participants']))
             optional = re_participants.findall(' '.join(kwargs['optional'] or []))
-
-            schedules = []
-            for days_of_week, time_of_day in kwargs.get('schedule', []) or []:
-                days_of_week, _, week_interval = days_of_week.lower().partition('/')
-                hour, _, minute = time_of_day.partition(':')
-                schedules.append((int(week_interval or 1), days_of_week, int(hour), int(minute)))
 
             return self.add(
                 name=name,
@@ -237,7 +239,7 @@ class MeetingBot(CachedStore):
                 start=start,
                 end=end,
                 url=kwargs['url'],
-                schedules=schedules,
+                schedules=parse_schedules(),
                 participants_optional=self._zulip_users(users=optional),
             )
         elif command == 'remove':
@@ -248,6 +250,8 @@ class MeetingBot(CachedStore):
             return self.info(name)
         elif command == 'edit':
             raise NotImplementedError
+        elif command == 'reschedule':
+            return self.reschedule(name, parse_schedules())
         elif command in ('add_participant', 'remove_participant'):
             participants = re_participants.findall(' '.join(kwargs['participants']))
             kw = {'optional': kwargs['optional']} if command == 'add_participant' else {}
@@ -299,6 +303,13 @@ class MeetingBot(CachedStore):
                 meeting.weight = [1. / len(value)] * len(value)
                 # TODO retain weights for existing participants
             setattr(meeting, key, value)
+        self.commit()
+
+    @ensure_name
+    def reschedule(self, name: str, schedules: List[Tuple[int, str, int, int]]):
+        log.info(f'Changing schedules for meeting {name} to {schedules}')
+        meeting = self[name]
+        meeting.schedules = schedules
         self.commit()
 
     @ensure_name
