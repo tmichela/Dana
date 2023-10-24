@@ -310,6 +310,8 @@ class MeetingBot(CachedStore):
         log.info(f'Changing schedules for meeting {name} to {schedules}')
         meeting = self[name]
         meeting.schedules = schedules
+        self._remove_job(meeting)
+        self._add_job(meeting)
         self.commit()
 
     @ensure_name
