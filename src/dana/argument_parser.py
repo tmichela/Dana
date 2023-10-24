@@ -54,7 +54,7 @@ parser_meeting_info.add_argument('name', nargs='+', help='Name of the meeting to
 parser_meeting_edit.add_argument('name', nargs='+', help='Name of the meeting to edit')
 parser_meeting_edit.add_argument('--arg', '-a', action='append', nargs=2, metavar=('KEY', 'VALUE'), required=True, help='key/value of the property to change')
 
-parser_meeting_reschedule.add_argument('name', help='Name of the meeting to change the schedule for')
+parser_meeting_reschedule.add_argument('name', nargs='+', help='Name of the meeting to change the schedule for')
 parser_meeting_reschedule.add_argument('--schedule', '-sc', nargs=2, action='append', metavar=('DAYS', 'HH:MM'), required=True, help=sched_help)
 
 parser_meeting_add_participant.add_argument('name', nargs='+', help='Name of the meeting')
