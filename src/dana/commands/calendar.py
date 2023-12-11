@@ -29,7 +29,7 @@ def make_calendar(year=None, month=None, start_sunday=False):
 
     firstweekday = calendar.SUNDAY if start_sunday else calendar.MONDAY
     calendar.setfirstweekday(firstweekday)
-    cal = calendar.Calendar()
+    cal = calendar.Calendar(firstweekday)
 
     if full_year:
         cal_str = '\n'.join(format_calendar(cal, year, m) for m in range(1, 13))
