@@ -11,7 +11,7 @@ def format_calendar(cal: calendar.Calendar, year: str, month: int) -> str:
             if n == 0:
                 write(f"{week[-1].strftime('%B')} {year}")
                 write('Week | ' + calendar.weekheader(3))
-            week_nr = week[0].isocalendar().week
+            week_nr = week[-1].isocalendar().week
             days = ''.join(f'{day.day:>4}' if day.month == month else '    ' for day in week)
             write(f'{week_nr:>4} |{days}')
         return out.getvalue()
