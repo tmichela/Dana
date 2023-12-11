@@ -70,8 +70,8 @@ parser_meeting_resume.add_argument('name', nargs='+', help='Name of the meeting'
 # calendar subcommand
 parser_meeting = subparsers.add_parser(
     'calendar', help='Show calendar', formatter_class=RawDescriptionHelpFormatter)
-parser_meeting.add_argument('year', type=int, default=None, help='Year. Default value is the current year.')
-parser_meeting.add_argument('month', type=int, default=None, help='Month. Default value is the current month.')
+parser_meeting.add_argument('year', type=int, help='Year. Default value is the current year.')
+parser_meeting.add_argument('month', type=int, nargs='?', default=None, help='Month. Default value is the current month.')
 parser_meeting.add_argument('--start_sunday', default=False, action='store_true', help='Start weeks from Sunday.')
 
 
