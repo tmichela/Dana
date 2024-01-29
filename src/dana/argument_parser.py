@@ -67,6 +67,14 @@ parser_meeting_pause.add_argument('name', nargs='+', help='Name of the meeting')
 parser_meeting_resume.add_argument('name', nargs='+', help='Name of the meeting')
 
 
+# calendar subcommand
+parser_meeting = subparsers.add_parser(
+    'calendar', help='Show calendar', formatter_class=RawDescriptionHelpFormatter)
+parser_meeting.add_argument('year', type=int, help='Year. Default value is the current year.')
+parser_meeting.add_argument('month', type=int, nargs='?', default=None, help='Month. Default value is the current month.')
+parser_meeting.add_argument('--start_sunday', default=False, action='store_true', help='Start weeks from Sunday.')
+
+
 # reminders subcommand
 # TODO
 
@@ -86,3 +94,9 @@ def parse_arguments(args):
         return None, str(ex)
     else:
         return args, out.getvalue()
+
+
+def print_help(sub_command=None):
+    if sub_command is None:
+        return parser.format_help()
+    return parser.parse_args([f'sub_command', '--help'])

@@ -1,8 +1,9 @@
 from io import StringIO
 from contextlib import redirect_stdout, redirect_stderr
 
-from argument_parser import parse_arguments
+from argument_parser import parse_arguments, print_help
 from commands.meetings import MeetingBot
+from commands.calendar import make_calendar
 
 
 # key in the zulip cache where meeting information is stored
@@ -26,6 +27,7 @@ class Dana:
 
         if args is None:
             print(output)
+            bot_handler.reply(message, print_help())
             return
 
         if args.command == 'meeting' and args.meeting_command is not None:
@@ -39,8 +41,18 @@ class Dana:
             res = self.meetings.execute(args.meeting_command, **arguments)
             print(res)
             bot_handler.send_reply(message, res)
+
+        elif args.command == 'calendar':
+            try:
+                res = make_calendar(args.year, args.month, args.start_sunday)
+            except Exception as ex:
+                print(ex)
+                res = str(ex)
+            bot_handler.send_reply(message, res)
+
         else:
             print(args)
+            bot_handler.send_reply(message, print_help())
 
     def usage(self, bot='@-mention-bot'):
         return f"""Hi! I'm {bot}!"""
