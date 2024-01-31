@@ -123,16 +123,10 @@ class Meeting:
             return [np.random.choice(list(self.participants.keys()))] * 3
 
         p = np.asarray(list(self.participants.keys()))
-        w = np.asarray(self.weight)
         # pick 3 users
-        users = np.random.choice(p, 3, replace=False, p=w)
-        # change weights (1st /10, 2nd /2)
-        w[np.where(p==users[0])[0][0]] /= 10
-        w[np.where(p==users[1])[0][0]] /= 2
-        w /= w.sum()
+        users = np.random.choice(p, 3, replace=False)
 
-        log.info(f'{self.name} takes minutes: {users}\nold weights: {self.weight}\nnew weights: {w}')
-        self.weight[:] = w
+        log.info(f'{self.name} takes minutes: {users}')
 
         return users
 
