@@ -50,6 +50,7 @@ class Meeting:
     end: Optional[str] = None
     schedules: Optional[List[Tuple[int, str, int, int]]] = field(default_factory=dict)
     paused: bool = False
+    weight: Optional[List[float]] = None
     participants_optional: Optional[Dict[str, int]] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -57,6 +58,14 @@ class Meeting:
             self.start = datetime.fromisoformat(self.start)
         if isinstance(self.end, str):
             self.end = datetime.fromisoformat(self.end)
+
+        if self.weight is None:
+            self.weight = [1. / len(self.participants)] * len(self.participants)
+
+        # fix invalid data
+        if not isclose(sum(self.weight), 1.):
+            sum_w = sum(self.weight)
+            self.weight[:] = [w / sum_w for w in self.weight]
 
         for p in list(self.participants_optional):
             if p in self.participants:
