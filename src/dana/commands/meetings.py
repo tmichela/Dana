@@ -50,7 +50,6 @@ class Meeting:
     end: Optional[str] = None
     schedules: Optional[List[Tuple[int, str, int, int]]] = field(default_factory=dict)
     paused: bool = False
-    weight: Optional[List[float]] = None
     participants_optional: Optional[Dict[str, int]] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -58,14 +57,6 @@ class Meeting:
             self.start = datetime.fromisoformat(self.start)
         if isinstance(self.end, str):
             self.end = datetime.fromisoformat(self.end)
-
-        if self.weight is None:
-            self.weight = [1. / len(self.participants)] * len(self.participants)
-
-        # fix invalid data
-        if not isclose(sum(self.weight), 1.):
-            sum_w = sum(self.weight)
-            self.weight[:] = [w / sum_w for w in self.weight]
 
         for p in list(self.participants_optional):
             if p in self.participants:
@@ -123,16 +114,10 @@ class Meeting:
             return [np.random.choice(list(self.participants.keys()))] * 3
 
         p = np.asarray(list(self.participants.keys()))
-        w = np.asarray(self.weight)
         # pick 3 users
-        users = np.random.choice(p, 3, replace=False, p=w)
-        # change weights (1st /10, 2nd /2)
-        w[np.where(p==users[0])[0][0]] /= 10
-        w[np.where(p==users[1])[0][0]] /= 2
-        w /= w.sum()
+        users = np.random.choice(p, 3, replace=False)
 
-        log.info(f'{self.name} takes minutes: {users}\nold weights: {self.weight}\nnew weights: {w}')
-        self.weight[:] = w
+        log.info(f'{self.name} takes minutes: {users}')
 
         return users
 
