@@ -286,7 +286,7 @@ class MeetingBot(CachedStore):
             raise Exception('must provide a user or a meeting')
 
 
-        header = f'| {"Participant" if meeting is not None else "Meeting"} | {odds} |'
+        header = f'| {"Participant" if meeting is not None else "Meeting"} | Odds |'
         separator = '--- | --:'
         rows = [f'**{name}** | {odds:04.1f}%' for odds, name in sorted(rows, reverse=True)]
         return '\n'.join([header, separator] + rows)
