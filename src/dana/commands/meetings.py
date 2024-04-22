@@ -279,11 +279,10 @@ class MeetingBot(CachedStore):
                 msg.append(f'**{p}**: {100 * m.odds(p):04.1f}%')
         elif user is not None:
             for name, meeting in sorted(self.items()):
-                if proba := meeting.odds(name):
+                if proba := meeting.odds(user):
                     msg.append(f'**{name}**: {100 * proba:04.1f}%')  
         else:
             raise Exception('must provide a user or a meeting')
-
         return '\n'.join(msg)
 
     def list(self):
