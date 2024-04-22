@@ -278,8 +278,8 @@ class MeetingBot(CachedStore):
             for p in sorted(m.participants):
                 rows.append((100 * m.odds(p), p))
         elif user is not None:
-            for name, meeting in sorted(self.items()):
-                if proba := meeting.odds(user):
+            for name, _meeting in sorted(self.items()):
+                if proba := _meeting.odds(user):
                     #msg.append(f'**{name}**: {100 * proba:04.1f}%')
                     rows.append((100 * proba, name))
         else:
