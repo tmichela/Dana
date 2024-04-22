@@ -271,19 +271,25 @@ class MeetingBot(CachedStore):
             return f'Unknown command "{command}"'
 
     def odds(self, user=None, meeting=None):
-        msg = []
+        rows = []
 
         if meeting is not None:
             m = self[meeting]
             for p in sorted(m.participants):
-                msg.append(f'**{p}**: {100 * m.odds(p):04.1f}%')
+                rows.append((100 * m.odds(p), p))
         elif user is not None:
             for name, meeting in sorted(self.items()):
                 if proba := meeting.odds(user):
-                    msg.append(f'**{name}**: {100 * proba:04.1f}%')  
+                    #msg.append(f'**{name}**: {100 * proba:04.1f}%')
+                    rows.append((100 * proba, name))
         else:
             raise Exception('must provide a user or a meeting')
-        return '\n'.join(msg)
+
+
+        header = f'| {"Participant" if meeting is not None else "Meeting"} | {odds} |'
+        separator = '--- | --:'
+        rows = [f'**{name}** | {odds:04.1f}%' for odds, name in sorted(rows, reverse=True)]
+        return '\n'.join([header, separator] + rows)
 
     def list(self):
         msg = ['# Meetings:']
