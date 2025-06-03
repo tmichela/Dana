@@ -58,7 +58,7 @@ class Dana:
             bot_handler.send_reply(message, res)
         
         elif args.command == 'pick':
-            res = pick_user(message, bot_handler.client)
+            res = pick_user(message, bot_handler._client)
             bot_handler.send_reply(message, res)
 
         else:
