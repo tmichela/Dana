@@ -34,6 +34,7 @@ parser_meeting_add_participant = meeting_subparsers.add_parser('add_participant'
 parser_meeting_remove_participant = meeting_subparsers.add_parser('remove_participant', help='Remove a participant from a meeting', formatter_class=RawDescriptionHelpFormatter)
 parser_meeting_pause = meeting_subparsers.add_parser('pause', help='Pause meeting', formatter_class=RawDescriptionHelpFormatter)
 parser_meeting_resume = meeting_subparsers.add_parser('resume', help='Resume a paused meeting', formatter_class=RawDescriptionHelpFormatter)
+parser_meeting_odds = meeting_subparsers.add_parser('odds', help='Show probabilities to be selected as minutes taker.', formatter_class=RawDescriptionHelpFormatter)
 
 parser_meeting_add.add_argument('name', nargs='+', help='Meeting name')
 parser_meeting_add.add_argument('--description', '-d', type=str, nargs='+', help='Description')
@@ -65,6 +66,8 @@ parser_meeting_remove_participant.add_argument('--participants', '-p', nargs='+'
 
 parser_meeting_pause.add_argument('name', nargs='+', help='Name of the meeting')
 parser_meeting_resume.add_argument('name', nargs='+', help='Name of the meeting')
+
+parser_meeting_odds.add_argument('name', nargs='*', help='Name of the meeting. Show requesting users odds if meeting is not provided.')
 
 
 # calendar subcommand

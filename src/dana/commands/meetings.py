@@ -136,6 +136,11 @@ class Meeting:
 
         return users
 
+    def odds(self, participant):
+        if participant not in self.participants:
+            return
+        return self.weight[list(self.participants).index(participant)]
+
     def appointment(self):
         """Return an appointment message"""
         return {
@@ -260,12 +265,35 @@ class MeetingBot(CachedStore):
             return self.pause(name)
         elif command == 'resume':
             return self.resume(name)
+        elif command == 'odds':
+            return self.odds(kwargs.get('sender_full_name'), name or None)
         else:
             return f'Unknown command "{command}"'
 
+    def odds(self, user=None, meeting=None):
+        rows = []
+
+        if meeting is not None:
+            m = self[meeting]
+            for p in sorted(m.participants):
+                rows.append((100 * m.odds(p), p))
+        elif user is not None:
+            for name, _meeting in sorted(self.items()):
+                if proba := _meeting.odds(user):
+                    #msg.append(f'**{name}**: {100 * proba:04.1f}%')
+                    rows.append((100 * proba, name))
+        else:
+            raise Exception('must provide a user or a meeting')
+
+
+        header = f'| {"Participant" if meeting is not None else "Meeting"} | Odds |'
+        separator = '--- | --:'
+        rows = [f'**{name}** | {odds:04.1f}%' for odds, name in sorted(rows, reverse=True)]
+        return '\n'.join([header, separator] + rows)
+
     def list(self):
         msg = ['# Meetings:']
-        for idx, (name, meeting) in enumerate(self.items()):
+        for idx, (name, meeting) in enumerate(sorted(self.items())):
             msg.append(f'{idx}. [{meeting.status}] {name}')
         return '\n'.join(msg)
 

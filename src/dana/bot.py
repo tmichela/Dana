@@ -34,6 +34,7 @@ class Dana:
             arguments = dict(args.__dict__)
             arguments.pop('meeting_command')
             arguments.pop('command')
+            arguments['sender_full_name'] = message['sender_full_name']
 
             print(arguments)
             print(args.meeting_command, type(args.meeting_command))
