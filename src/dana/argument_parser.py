@@ -71,12 +71,15 @@ parser_meeting_odds.add_argument('name', nargs='*', help='Name of the meeting. S
 
 
 # calendar subcommand
-parser_meeting = subparsers.add_parser(
+parser_calendar = subparsers.add_parser(
     'calendar', help='Show calendar', formatter_class=RawDescriptionHelpFormatter)
-parser_meeting.add_argument('year', type=int, help='Year. Default value is the current year.')
-parser_meeting.add_argument('month', type=int, nargs='?', default=None, help='Month. Default value is the current month.')
-parser_meeting.add_argument('--start_sunday', default=False, action='store_true', help='Start weeks from Sunday.')
+parser_calendar.add_argument('year', type=int, nargs='?', default=None, help='Year. Default value is the current year.')
+parser_calendar.add_argument('month', type=int, nargs='?', default=None, help='Month. Default value is the current month.')
+parser_calendar.add_argument('--start_sunday', default=False, action='store_true', help='Start weeks from Sunday.')
 
+# pick subcommand
+parser_pick = subparsers.add_parser(
+    'pick', help='Pick a random user from the current context (stream or private message group)')
 
 # reminders subcommand
 # TODO
@@ -102,4 +105,6 @@ def parse_arguments(args):
 def print_help(sub_command=None):
     if sub_command is None:
         return parser.format_help()
-    return parser.parse_args([f'sub_command', '--help'])
+    if sub_command in subparsers.choices:
+        return subparsers.choices[sub_command].format_help()
+    return parser.format_help()
