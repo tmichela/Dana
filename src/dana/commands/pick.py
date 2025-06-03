@@ -40,7 +40,7 @@ def pick_user(message, client):
                 return f"Error fetching subscribers: {subscribers_response['msg']}"
             
             for user_id in subscribers_response['subscribers']:
-                if user_id != bot_user_id and user_id in active_human_users_map:
+                if user_id in active_human_users_map:
                     candidate_user_ids.add(user_id)
         except Exception as e:
             print(f"Error in pick command (stream subscribers): {e}")
@@ -50,7 +50,7 @@ def pick_user(message, client):
         recipients_in_pm = message['display_recipient']
         for user_info in recipients_in_pm:
             user_id = user_info['id']
-            if user_id != bot_user_id and user_id in active_human_users_map:
+            if user_id in active_human_users_map:
                 candidate_user_ids.add(user_id)
     
     else: # Should not happen if bot only responds to DMs and stream mentions
